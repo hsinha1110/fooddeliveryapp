@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fooddeliveryapp/onboarding.dart';
+import 'package:fooddeliveryapp/signup.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,6 +11,6 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: Onboarding());
+    return MaterialApp(debugShowCheckedModeBanner: false, home: Signup());
   }
 }
