@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:fooddeliveryapp/bottom_nav.dart';
+import 'package:fooddeliveryapp/home.dart';
+import 'package:fooddeliveryapp/services/authentication.dart';
+import 'package:fooddeliveryapp/services/database.dart';
 import 'package:fooddeliveryapp/signup.dart';
 import 'package:fooddeliveryapp/utils/validation.dart';
 
@@ -13,6 +17,34 @@ class _LoginState extends State<Login> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final GlobalKey<FormState> _globalKey = GlobalKey<FormState>();
+  DatabaseMethods databaseMethods = new DatabaseMethods();
+
+  Future<void> login() async {
+    final result = await AuthenticationHelper().signIn(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Login Successful")));
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const BottomNav(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.toString())));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -134,15 +166,9 @@ class _LoginState extends State<Login> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
-                                onPressed: () {
+                                onPressed: () async {
                                   if (_globalKey.currentState!.validate()) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text("Login Successful"),
-                                      ),
-                                    );
-                                    print("Email: ${emailController.text}");
-                                    print("Password: ${passwordController.text}");
+                                    await login();
                                   }
                                 },
                                 child: const Text(

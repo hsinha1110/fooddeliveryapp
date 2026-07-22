@@ -1,5 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fooddeliveryapp/login.dart';
+import 'package:fooddeliveryapp/services/authentication.dart';
+import 'package:fooddeliveryapp/services/database.dart';
 import 'package:fooddeliveryapp/utils/validation.dart';
 
 class Signup extends StatefulWidget {
@@ -14,6 +18,46 @@ class _SignupState extends State<Signup> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final GlobalKey<FormState> _globalKey = GlobalKey<FormState>();
+  DatabaseMethods databaseMethods = new DatabaseMethods();
+
+  Future<void> signUp() async {
+    try {
+      await DatabaseMethods().signUp(
+        name: nameController.text.trim(),
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Signup Successful")));
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Login()),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message ?? "Signup Failed")));
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message ?? "Firestore Error")));
+
+      print("Firestore Error : ${e.code}");
+      print("Firestore Message : ${e.message}");
+    } catch (e) {
+      print(e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,6 +126,7 @@ class _SignupState extends State<Signup> {
                           const SizedBox(height: 8),
 
                           TextFormField(
+                            controller: nameController,
                             decoration: InputDecoration(
                               hintText: "Enter Name",
                               prefixIcon: const Icon(Icons.person_outline),
@@ -104,6 +149,7 @@ class _SignupState extends State<Signup> {
                           const SizedBox(height: 8),
 
                           TextFormField(
+                            controller: emailController,
                             decoration: InputDecoration(
                               hintText: "Enter Email",
                               prefixIcon: const Icon(Icons.email_outlined),
@@ -126,6 +172,7 @@ class _SignupState extends State<Signup> {
                           const SizedBox(height: 8),
 
                           TextFormField(
+                            controller: passwordController,
                             obscureText: true,
                             decoration: InputDecoration(
                               hintText: "Enter Password",
@@ -153,18 +200,9 @@ class _SignupState extends State<Signup> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                 ),
-                                onPressed: () {
+                                onPressed: () async {
                                   if (_globalKey.currentState!.validate()) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text("Login Successful"),
-                                      ),
-                                    );
-                                    print("Name: ${nameController.text}");
-                                    print("Email: ${emailController.text}");
-                                    print(
-                                      "Password: ${passwordController.text}",
-                                    );
+                                    await signUp();
                                   }
                                 },
                                 child: const Text(
