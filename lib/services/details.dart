@@ -1,20 +1,117 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:fooddeliveryapp/bottom_nav.dart';
 import 'package:fooddeliveryapp/model/food_list.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:fooddeliveryapp/services/database.dart';
+import 'package:http/http.dart' as http;
 
 class Details extends StatefulWidget {
   final FoodList food;
-
   const Details({super.key, required this.food});
 
   @override
   State<Details> createState() => _DetailsState();
 }
 
+DatabaseMethods databaseMethods = DatabaseMethods();
+
+Future<Map<String, dynamic>> createPaymentIntent(
+  String amount,
+  String currency,
+) async {
+  final response = await http.post(
+    Uri.parse("http://localhost:3000/payment-sheet"),
+    headers: {"Content-Type": "application/json"},
+    body: jsonEncode({"amount": amount, "currency": currency}),
+  );
+
+  print("Status Code: ${response.statusCode}");
+  print("Response: ${response.body}");
+
+  if (response.statusCode != 200) {
+    throw Exception("Server Error: ${response.body}");
+  }
+
+  return jsonDecode(response.body);
+}
+
 class _DetailsState extends State<Details> {
   int quantity = 1;
+  Map<String, dynamic>? paymentIntent;
+
+  Future<void> showOrderSuccessDialog(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              SizedBox(width: 10),
+              Text("Success"),
+            ],
+          ),
+          content: const Text("🎉 Your order has been placed successfully."),
+        );
+      },
+    );
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (!context.mounted) return;
+
+    Navigator.of(context).pop(); // Dialog close
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const BottomNav()),
+      (route) => false,
+    );
+  }
+
+  Future<void> makePayment(double totalPrice) async {
+    try {
+      paymentIntent = await createPaymentIntent(
+        (totalPrice * 100).toInt().toString(),
+        "inr",
+      );
+
+      print(paymentIntent);
+
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          merchantDisplayName: "Food Delivery",
+          customerId: paymentIntent!["customer"],
+          customerEphemeralKeySecret: paymentIntent!["ephemeralKey"],
+          paymentIntentClientSecret: paymentIntent!["paymentIntent"],
+        ),
+      );
+
+      await Stripe.instance.presentPaymentSheet();
+      await DatabaseMethods().addOrder(
+        foodName: widget.food.Title,
+        foodImage: widget.food.Image,
+        quantity: quantity,
+        total: totalPrice,
+      );
+
+      await showOrderSuccessDialog(context);
+    } on StripeException catch (e) {
+      print(e.error.localizedMessage);
+    } catch (e) {
+      print(e);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    double price = double.parse(widget.food.Price.replaceAll("\$", ""));
+    double totalPrice = price * quantity;
     return Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,7 +200,7 @@ class _DetailsState extends State<Details> {
                           GestureDetector(
                             onTap: () {
                               setState(() {
-                                  quantity++;
+                                quantity++;
                               });
                             },
                             child: Material(
@@ -180,7 +277,7 @@ class _DetailsState extends State<Details> {
                                 height: 60,
                                 alignment: Alignment.center,
                                 child: Text(
-                                  widget.food.Price,
+                                  "\$${totalPrice.toStringAsFixed(0)}",
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -191,10 +288,8 @@ class _DetailsState extends State<Details> {
                             ),
                           ),
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                quantity--;
-                              });
+                            onTap: () async {
+                              await makePayment(totalPrice);
                             },
                             child: Material(
                               elevation: 5,

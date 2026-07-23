@@ -33,6 +33,41 @@ class DatabaseMethods {
     });
   }
 
+  Future<void> addOrder({
+    required String foodName,
+    required String foodImage,
+    required double total,
+    required int quantity,
+  }) async {
+    try {
+      User? user = _auth.currentUser;
+
+      if (user == null) {
+        print("User is null");
+        return;
+      }
+
+      // User ki details le lo
+      final userDoc = await _firestore.collection("users").doc(user.uid).get();
+
+      final docRef = await _firestore.collection("Orders").add({
+        "foodName": foodName,
+        "foodImage": foodImage,
+        "quantity": quantity,
+        "total": total,
+        "status": "Pending",
+        "userId": user.uid,
+        "userName": userDoc.data()?["name"],
+        "userEmail": userDoc.data()?["email"],
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+
+      print("Order ID: ${docRef.id}");
+    } catch (e) {
+      print("Firestore Error: $e");
+    }
+  }
+
   Future<void> logOut() async {
     await _auth.signOut();
   }
